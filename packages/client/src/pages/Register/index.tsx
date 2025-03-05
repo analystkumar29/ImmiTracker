@@ -9,7 +9,9 @@ import {
   Paper,
   Typography,
   Link,
+  Alert,
 } from '@mui/material';
+import { useState } from 'react';
 import FormTextField from '@/components/shared/FormTextField';
 import { setCredentials } from '@/store/slices/authSlice';
 import api from '../../utils/api';
@@ -29,13 +31,13 @@ const validationSchema = Yup.object({
 const Register = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [registerError, setRegisterError] = useState<string | null>(null);
 
   const handleSubmit = async (values: any, { setSubmitting, setErrors }: any) => {
     try {
       setRegisterError(null);
       
       const response = await api.post('/auth/register', {
-        name: values.name,
         email: values.email,
         password: values.password
       });
@@ -72,6 +74,13 @@ const Register = () => {
           <Typography component="h1" variant="h5">
             Create your ImmiTracker account
           </Typography>
+          
+          {registerError && (
+            <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
+              {registerError}
+            </Alert>
+          )}
+          
           <Formik
             initialValues={{
               email: '',
@@ -81,43 +90,52 @@ const Register = () => {
             validationSchema={validationSchema}
             onSubmit={handleSubmit}
           >
-            <Form style={{ width: '100%', marginTop: 1 }}>
-              <FormTextField
-                name="email"
-                label="Email Address"
-                autoComplete="email"
-                autoFocus
-              />
-              <FormTextField
-                name="password"
-                label="Password"
-                type="password"
-                autoComplete="new-password"
-              />
-              <FormTextField
-                name="confirmPassword"
-                label="Confirm Password"
-                type="password"
-                autoComplete="new-password"
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                sx={{ mt: 3, mb: 2 }}
-              >
-                Sign Up
-              </Button>
-              <Box sx={{ textAlign: 'center' }}>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => navigate('/login')}
+            {({ isSubmitting }) => (
+              <Form style={{ width: '100%', marginTop: 1 }}>
+                <FormTextField
+                  name="email"
+                  label="Email Address"
+                  autoComplete="email"
+                  autoFocus
+                  fullWidth
+                  margin="normal"
+                />
+                <FormTextField
+                  name="password"
+                  label="Password"
+                  type="password"
+                  autoComplete="new-password"
+                  fullWidth
+                  margin="normal"
+                />
+                <FormTextField
+                  name="confirmPassword"
+                  label="Confirm Password"
+                  type="password"
+                  autoComplete="new-password"
+                  fullWidth
+                  margin="normal"
+                />
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 3, mb: 2 }}
+                  disabled={isSubmitting}
                 >
-                  Already have an account? Sign In
-                </Link>
-              </Box>
-            </Form>
+                  {isSubmitting ? 'Signing Up...' : 'Sign Up'}
+                </Button>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Link
+                    component="button"
+                    variant="body2"
+                    onClick={() => navigate('/login')}
+                  >
+                    Already have an account? Sign In
+                  </Link>
+                </Box>
+              </Form>
+            )}
           </Formik>
         </Paper>
       </Box>

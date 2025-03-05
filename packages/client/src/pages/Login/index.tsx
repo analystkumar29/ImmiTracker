@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { Formik, Form, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import FormTextField from '@/components/shared/FormTextField';
 import { setCredentials } from '@/store/slices/authSlice';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../utils/api';
 
 const validationSchema = Yup.object({
@@ -25,13 +25,30 @@ const validationSchema = Yup.object({
     .required('Password is required'),
 });
 
+interface LocationState {
+  message?: string;
+}
+
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const state = location.state as LocationState;
+    if (state?.message) {
+      setSuccessMessage(state.message);
+      // Clear the message from location state to prevent it from showing after refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   const handleSubmit = async (values: { email: string; password: string }, { setSubmitting, setErrors }: FormikHelpers<{ email: string; password: string }>) => {
     try {
+      setLoginError(null);
+      
       const response = await api.post('/auth/login', {
         email: values.email,
         password: values.password
@@ -77,6 +94,12 @@ const Login = () => {
           <Typography component="h1" variant="h5">
             Sign in to ImmiTracker
           </Typography>
+          
+          {successMessage && (
+            <Alert severity="success" sx={{ width: '100%', mt: 2 }}>
+              {successMessage}
+            </Alert>
+          )}
           
           {loginError && (
             <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
