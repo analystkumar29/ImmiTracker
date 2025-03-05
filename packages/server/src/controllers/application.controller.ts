@@ -2,6 +2,9 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../index';
 import { AppError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../types/express';
+import { MilestoneService } from '../services/milestone.service';
+
+const milestoneService = new MilestoneService();
 
 export const createApplication = async (
   req: AuthenticatedRequest,
@@ -40,6 +43,56 @@ export const createApplication = async (
         statusHistory: true,
       },
     });
+
+    // Add default milestones from the database
+    // First, get all default milestones for this program type and subtype
+    const defaultMilestones = await prisma.milestone.findMany({
+      where: {
+        programType: type,
+        OR: [
+          { programSubType: subType },
+          { programSubType: null },
+        ],
+        isDefault: true,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    // If any default milestones were found, update the application with these milestones
+    if (defaultMilestones.length > 0) {
+      console.log(`Adding ${defaultMilestones.length} default milestones to application ${application.id}`);
+      
+      // Create status history entries for each default milestone
+      // (Setting them as not completed initially)
+      for (const milestone of defaultMilestones) {
+        await prisma.statusHistory.create({
+          data: {
+            applicationId: application.id,
+            statusName: milestone.name,
+            statusDate: new Date(),
+            milestoneId: milestone.id, 
+            notes: `Default milestone: ${milestone.name}`,
+          },
+        });
+      }
+      
+      // Reload the application with the updated status history
+      const updatedApplication = await prisma.application.findUnique({
+        where: {
+          id: application.id,
+        },
+        include: {
+          statusHistory: true,
+        },
+      });
+      
+      if (updatedApplication) {
+        res.status(201).json(updatedApplication);
+        return;
+      }
+    }
 
     res.status(201).json(application);
   } catch (error) {
