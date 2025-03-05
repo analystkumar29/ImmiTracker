@@ -9,7 +9,7 @@ try {
   const portFilePath = path.resolve(__dirname, 'server-port.json');
   if (fs.existsSync(portFilePath)) {
     const portData = JSON.parse(fs.readFileSync(portFilePath, 'utf8'));
-    serverPort = portData.port;
+    serverPort = portData.port || 3000;
     console.log(`Using server port from file: ${serverPort}`);
   } else {
     console.log('Server port file not found, using default port 3000');
@@ -28,7 +28,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: false, // Allow Vite to try other ports if 5173 is in use
+    strictPort: false,
     proxy: {
       '/api': {
         target: `http://localhost:${serverPort}`,
@@ -50,29 +50,39 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
-      'react',
-      'react-dom',
-      'react-router-dom',
-      'react-redux',
-      '@reduxjs/toolkit',
+      'react', 
+      'react-dom', 
+      'react-router-dom', 
+      '@mui/material', 
+      '@mui/icons-material',
       'date-fns',
-      'axios'
+      'axios',
+      '@reduxjs/toolkit',
+      'react-redux',
+      '@mui/lab',
+      '@mui/x-date-pickers/DatePicker',
+      '@mui/x-date-pickers/LocalizationProvider',
+      '@mui/x-date-pickers/AdapterDateFns',
+      'react-hot-toast'
     ],
-    exclude: [], // Keep empty to allow Vite to decide
-    force: true, // Force optimization on restart
+    force: true, // Force dependency pre-bundling
     esbuildOptions: {
-      // Improve build performance
-      target: 'esnext',
+      logLevel: 'info',
+      target: 'es2020'
     }
   },
   build: {
     sourcemap: true,
-    commonjsOptions: {
-      transformMixedEsModules: true, // Handle mixed module types
-    },
-    target: 'esnext', // Modern browsers (use 'es2015' for wider compatibility)
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          mui: ['@mui/material', '@mui/icons-material', '@mui/lab', '@mui/x-date-pickers'],
+          utils: ['date-fns', 'axios']
+        }
+      }
+    }
   },
-  // Use a different cache directory to avoid conflicts
   cacheDir: path.resolve(__dirname, 'node_modules/.vite_custom_cache')
 }); 
