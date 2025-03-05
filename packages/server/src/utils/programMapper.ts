@@ -29,9 +29,11 @@ export const mapToImmigrationProgramId = (type: string, subType: string): string
         return undefined;
     }
   } else if (type === 'Economic Immigration') {
-    if (baseProgram.includes('Express Entry') || 
+    // Specific check for Canadian Experience Class
+    if (baseProgram.includes('Canadian Experience')) {
+      return 'canadian_experience_class';
+    } else if (baseProgram.includes('Express Entry') || 
         baseProgram.includes('Skilled Workers') || 
-        baseProgram.includes('Canadian Experience') || 
         baseProgram.includes('Skilled Trades')) {
       return 'express_entry';
     } else if (baseProgram.includes('Provincial') || baseProgram.includes('PNP')) {

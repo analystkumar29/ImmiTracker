@@ -182,4 +182,63 @@ export const initializeDefaultMilestones = async (
   } catch (error) {
     next(error);
   }
+};
+
+/**
+ * Check for duplicate milestones across programs
+ */
+export const checkDuplicateMilestones = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const duplicates = await milestoneService.checkForDuplicateMilestones();
+    
+    res.status(200).json({
+      count: duplicates.length,
+      duplicates
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get popular custom milestones that could be promoted to defaults
+ */
+export const getPopularMilestones = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const threshold = req.query.threshold ? parseInt(req.query.threshold as string) : undefined;
+    const popularMilestones = await milestoneService.getPopularCustomMilestones(threshold);
+    
+    res.status(200).json(popularMilestones);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Promote popular custom milestones to default status
+ */
+export const promotePopularMilestones = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const threshold = req.body.threshold ? parseInt(req.body.threshold as string) : undefined;
+    const results = await milestoneService.promotePopularMilestones(threshold);
+    
+    res.status(200).json({
+      message: 'Popular milestones promoted successfully',
+      results
+    });
+  } catch (error) {
+    next(error);
+  }
 }; 

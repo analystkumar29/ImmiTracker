@@ -10,6 +10,7 @@ import milestoneRoutes from './routes/milestone.routes';
 import { errorHandler } from './middleware/errorHandler';
 import fs from 'fs';
 import path from 'path';
+import { scheduledTasks } from './utils/scheduledTasks';
 
 // Load environment variables
 config();
@@ -34,6 +35,19 @@ app.use('/api/milestones', milestoneRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
+
+// Set up scheduled tasks
+// Run milestone promotion task once every day (24 hours)
+setInterval(scheduledTasks.checkAndPromotePopularMilestones, 24 * 60 * 60 * 1000);
+
+// Run duplicate milestone check once every week (7 days)
+setInterval(scheduledTasks.checkForDuplicateMilestones, 7 * 24 * 60 * 60 * 1000);
+
+// Initial run of scheduled tasks
+setTimeout(() => {
+  scheduledTasks.checkAndPromotePopularMilestones();
+  scheduledTasks.checkForDuplicateMilestones();
+}, 10 * 60 * 1000); // Run initial check after 10 minutes
 
 // Start server
 const PORT = Number(process.env.PORT) || 3000;

@@ -3,6 +3,9 @@ import { normalizeString } from '../utils/stringUtils';
 
 const prisma = new PrismaClient();
 
+// Threshold for auto-approving milestone templates
+const MILESTONE_APPROVAL_THRESHOLD = 3;
+
 /**
  * Service for handling milestone operations
  */
@@ -43,7 +46,7 @@ export class MilestoneService {
   }
 
   /**
-   * Create a new milestone template
+   * Create a new milestone template or update an existing one
    */
   async createMilestoneTemplate(data: {
     name: string;
@@ -54,7 +57,7 @@ export class MilestoneService {
   }) {
     const normalizedName = normalizeString(data.name);
     
-    // Check if a similar template already exists
+    // Check if a similar template already exists for this program
     const existingTemplate = await prisma.milestoneTemplate.findFirst({
       where: {
         normalizedName,
@@ -65,12 +68,18 @@ export class MilestoneService {
     
     if (existingTemplate) {
       // Increment the use count of the existing template
-      await prisma.milestoneTemplate.update({
+      const updatedTemplate = await prisma.milestoneTemplate.update({
         where: { id: existingTemplate.id },
-        data: { useCount: { increment: 1 } },
+        data: { 
+          useCount: { increment: 1 },
+          // Auto-approve if the template has been used enough times
+          isApproved: existingTemplate.useCount + 1 >= MILESTONE_APPROVAL_THRESHOLD 
+            ? true 
+            : existingTemplate.isApproved
+        },
       });
       
-      return existingTemplate;
+      return updatedTemplate;
     }
     
     // Create a new template
@@ -84,6 +93,7 @@ export class MilestoneService {
         createdById: data.userId,
         // New templates created by users are not approved by default
         isApproved: false,
+        useCount: 1,
       },
     });
     
@@ -98,6 +108,37 @@ export class MilestoneService {
       where: { id: templateId },
       data: { isApproved: true },
     });
+  }
+
+  /**
+   * Check for duplicate milestone names across all programs
+   */
+  async checkForDuplicateMilestones() {
+    // Get all milestones
+    const milestones = await prisma.milestone.findMany({
+      include: {
+        template: true
+      }
+    });
+
+    const normalizedMilestones = new Map();
+    const duplicates = [];
+
+    // Find duplicates based on normalized name
+    for (const milestone of milestones) {
+      const normalizedName = normalizeString(milestone.name);
+      
+      if (normalizedMilestones.has(normalizedName)) {
+        duplicates.push({
+          original: normalizedMilestones.get(normalizedName),
+          duplicate: milestone
+        });
+      } else {
+        normalizedMilestones.set(normalizedName, milestone);
+      }
+    }
+
+    return duplicates;
   }
 
   /**
@@ -148,8 +189,26 @@ export class MilestoneService {
     programSubType?: string;
     userId?: string;
   }) {
+    // First check if a milestone with this exact name already exists for this program
+    const existingMilestone = await prisma.milestone.findFirst({
+      where: {
+        name: data.name,
+        programType: data.programType,
+        programSubType: data.programSubType,
+      }
+    });
+
+    // If it exists, simply return it
+    if (existingMilestone) {
+      return existingMilestone;
+    }
+
     // Create or get template
     const template = await this.createMilestoneTemplate(data);
+    
+    // Check if template is now approved (due to frequent use)
+    // If so, we should create a default milestone instead of a custom one
+    const shouldBeDefault = template.isApproved;
     
     // Get the highest order for the program type
     const highestOrder = await prisma.milestone.findFirst({
@@ -172,7 +231,7 @@ export class MilestoneService {
         description: data.description,
         programType: data.programType,
         programSubType: data.programSubType,
-        isDefault: false,
+        isDefault: shouldBeDefault,
         order: highestOrder ? highestOrder.order + 1 : 0,
         templateId: template.id,
       },
@@ -207,5 +266,52 @@ export class MilestoneService {
     return prisma.milestone.delete({
       where: { id: milestoneId },
     });
+  }
+
+  /**
+   * Get popular custom milestones that could be promoted to default status
+   */
+  async getPopularCustomMilestones(threshold = MILESTONE_APPROVAL_THRESHOLD) {
+    const popularTemplates = await prisma.milestoneTemplate.findMany({
+      where: {
+        useCount: { gte: threshold },
+        isApproved: false
+      },
+      orderBy: {
+        useCount: 'desc'
+      }
+    });
+
+    return popularTemplates;
+  }
+
+  /**
+   * Promote popular custom milestones to default status
+   */
+  async promotePopularMilestones(threshold = MILESTONE_APPROVAL_THRESHOLD) {
+    const popularTemplates = await this.getPopularCustomMilestones(threshold);
+    
+    const results = [];
+    
+    for (const template of popularTemplates) {
+      // Update the template to approved status
+      await prisma.milestoneTemplate.update({
+        where: { id: template.id },
+        data: { isApproved: true }
+      });
+      
+      // Update any milestones using this template to default status
+      const updatedMilestones = await prisma.milestone.updateMany({
+        where: { templateId: template.id },
+        data: { isDefault: true }
+      });
+      
+      results.push({
+        template: template.name,
+        milestonesUpdated: updatedMilestones.count
+      });
+    }
+    
+    return results;
   }
 } 

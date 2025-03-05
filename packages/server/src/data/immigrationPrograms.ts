@@ -168,5 +168,32 @@ export const immigrationPrograms: ImmigrationProgram[] = [
       },
       inCanada: "12 months"
     }
+  },
+  {
+    "id": "canadian_experience_class",
+    "programName": "Canadian Experience Class",
+    "category": "Permanent Residence",
+    "description": "Immigration program for skilled workers with Canadian work experience to become permanent residents.",
+    "visaOffices": "Centrally processed by IRCC.",
+    "milestoneUpdates": [
+      "Profile Created in Express Entry",
+      "ITA Received",
+      "Application Submitted",
+      "AOR Received",
+      "Biometrics Instruction Letter Received",
+      "Biometrics Completed", 
+      "Medical Exam Required",
+      "Medical Exam Completed",
+      "Additional Documents Requested",
+      "Additional Documents Submitted",
+      "Background Check Completed",
+      "COPR Issued"
+    ],
+    "processingTimes": {
+      "exampleCountries": {
+        "Global": "6-8 months"
+      },
+      "inCanada": "6 months"
+    }
   }
 ]; 

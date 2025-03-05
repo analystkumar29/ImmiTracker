@@ -7,6 +7,9 @@ import {
   deleteMilestone,
   approveMilestoneTemplate,
   initializeDefaultMilestones,
+  checkDuplicateMilestones,
+  getPopularMilestones,
+  promotePopularMilestones
 } from '../controllers/milestone.controller';
 import { protect } from '../middleware/auth';
 import { isAdmin } from '../middleware/isAdmin';
@@ -15,17 +18,20 @@ const router = express.Router();
 
 // Public routes
 router.get('/program/:programType', getMilestones);
-router.get('/program/:programType/subtype/:subType', getMilestones);
-router.get('/templates/program/:programType', getMilestoneTemplates);
-router.get('/templates/program/:programType/subtype/:subType', getMilestoneTemplates);
+router.get('/templates/:programType', getMilestoneTemplates);
 
-// Protected routes (require authentication)
-router.post('/', protect, createCustomMilestone);
-router.put('/:milestoneId/order', protect, updateMilestoneOrder);
-router.delete('/:milestoneId', protect, deleteMilestone);
+// Protected routes (requires login)
+router.use(protect);
+router.post('/custom', createCustomMilestone);
+router.post('/order', updateMilestoneOrder);
+router.delete('/:id', deleteMilestone);
 
-// Admin-only routes
-router.post('/templates/:templateId/approve', protect, isAdmin, approveMilestoneTemplate);
-router.post('/initialize', protect, isAdmin, initializeDefaultMilestones);
+// Admin routes
+router.use(isAdmin);
+router.post('/template/:id/approve', approveMilestoneTemplate);
+router.post('/initialize', initializeDefaultMilestones);
+router.get('/duplicates', checkDuplicateMilestones);
+router.get('/popular', getPopularMilestones);
+router.post('/promote', promotePopularMilestones);
 
 export default router; 
