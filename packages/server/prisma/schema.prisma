@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  role          UserRole      @default(USER)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  applications  Application[]
+  notifications Notification[]
+  createdMilestones MilestoneTemplate[] @relation("CreatedBy")
+
+  @@map("users")
+}
+
+model Application {
+  id             String          @id @default(uuid())
+  userId         String
+  type           String
+  subType        String
+  country        String
+  city           String
+  submissionDate DateTime
+  currentStatus  String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id])
+  statusHistory  StatusHistory[]
+
+  @@map("applications")
+}
+
+model StatusHistory {
+  id            String      @id @default(uuid())
+  applicationId String
+  statusName    String
+  statusDate    DateTime
+  notes         String?
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id])
+  milestoneId   String?
+  milestone     Milestone?  @relation(fields: [milestoneId], references: [id])
+
+  @@map("status_history")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+// New models for milestone system
+model Milestone {
+  id            String          @id @default(uuid())
+  name          String
+  description   String?
+  programType   String          // e.g., "visitor_visa", "study_permit"
+  programSubType String?        // Optional subtype
+  isDefault     Boolean         @default(false)
+  order         Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  statusUpdates StatusHistory[]
+  templateId    String?
+  template      MilestoneTemplate? @relation(fields: [templateId], references: [id])
+
+  @@map("milestones")
+  @@index([programType, programSubType])
+}
+
+model MilestoneTemplate {
+  id            String      @id @default(uuid())
+  name          String
+  normalizedName String     // Lowercase, no spaces/special chars for matching
+  description   String?
+  programType   String      // e.g., "visitor_visa", "study_permit"
+  programSubType String?    // Optional subtype
+  isApproved    Boolean     @default(false)
+  useCount      Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  createdById   String?
+  createdBy     User?       @relation("CreatedBy", fields: [createdById], references: [id])
+  milestones    Milestone[]
+
+  @@map("milestone_templates")
+  @@index([programType, programSubType])
+  @@index([normalizedName])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+} 

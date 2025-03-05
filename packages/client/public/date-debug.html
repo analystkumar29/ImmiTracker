@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Date-fns Debug</title>
+  <script type="module">
+    // Import the date-fns and adapter modules
+    try {
+      const dateAdapter = document.getElementById("dateAdapter");
+      dateAdapter.textContent = "Loading date adapter...";
+      
+      import("/src/utils/dateAdapter.ts")
+        .then(module => {
+          dateAdapter.textContent = "✅ Successfully loaded dateAdapter module";
+          
+          try {
+            const adapter = new module.default();
+            dateAdapter.textContent += "\n✅ Successfully instantiated adapter";
+            
+            // Test a method
+            const now = new Date();
+            const formatted = adapter.safeFormat(now, "yyyy-MM-dd");
+            dateAdapter.textContent += `\n✅ Formatted date: ${formatted}`;
+          } catch (e) {
+            dateAdapter.textContent += "\n❌ Error instantiating adapter: " + e.message;
+          }
+        })
+        .catch(err => {
+          dateAdapter.textContent = "❌ Failed to load dateAdapter: " + err.message;
+        });
+    } catch (e) {
+      document.getElementById("dateAdapter").textContent = "❌ Exception: " + e.message;
+    }
+  </script>
+</head>
+<body>
+  <h1>Date-fns Debug Page</h1>
+  <pre id="dateAdapter">Testing date adapter...</pre>
+</body>
+</html>
