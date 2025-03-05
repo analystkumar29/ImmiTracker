@@ -47,4 +47,5 @@ Thumbs.db
 debug.html
 
 # Server port file
-server-port.json 
+server-port.json *.backup
+*.old
