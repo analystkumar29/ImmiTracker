@@ -16,9 +16,9 @@ import {
   useTheme,
   Alert
 } from '@mui/material';
-import api from '../../utils/api';
+import api, { getMilestoneTemplates } from '../../utils/api';
 import { toast } from 'react-hot-toast';
-import { getMilestoneTemplates } from '../../utils/api';
+import { handleError } from '../../utils/errorHandler';
 
 // Define our props interface
 interface CustomMilestoneDialogProps {
@@ -99,10 +99,10 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
   const fetchSuggestions = async () => {
     setLoading(true);
     try {
-      // Use the exported function from api.ts to fetch milestone templates
-      const data = await getMilestoneTemplates(applicationType, applicationSubtype, true);
-      if (data) {
-        setSuggestions(data);
+      // Fetch suggested templates from the server using the utility function
+      const templates = await getMilestoneTemplates(applicationType, applicationSubtype, true);
+      if (templates) {
+        setSuggestions(templates);
       }
     } catch (error) {
       console.error('Error fetching milestone suggestions:', error);
@@ -136,9 +136,8 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
       setError(null);
       toast.success(`Added custom milestone: ${milestoneName.trim()}`);
     } catch (error) {
-      console.error('Error adding custom milestone:', error);
+      handleError(error, 'Failed to add custom milestone');
       setError('Failed to add custom milestone');
-      toast.error('Failed to add custom milestone');
     } finally {
       setLoading(false);
     }

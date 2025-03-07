@@ -25,10 +25,11 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import AddIcon from '@mui/icons-material/Add';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
-import api, { apiCall, getMilestoneTemplates } from '../../utils/api';
+import api, { getMilestoneTemplates } from '../../utils/api';
 import { setApplications } from '../../store/slices/applicationSlice';
 import toast from 'react-hot-toast';
 import { handleError } from '../../utils/errorHandler';
+import { Feedback } from '../Feedback';
 
 interface StatusUpdate {
   id: string;
@@ -50,6 +51,14 @@ interface Program {
   programName: string;
   programSubType?: string;
   milestoneUpdates: string[];
+}
+
+interface MilestoneTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  useCount: number;
+  isApproved: boolean;
 }
 
 interface UpdateStatusDialogProps {
@@ -74,7 +83,7 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [availableMilestones, setAvailableMilestones] = useState<string[]>([]);
   const [milestonesLoading, setMilestonesLoading] = useState<boolean>(false);
-  const [customMilestones, setCustomMilestones] = useState<string[]>([]);
+  const [customMilestones, setCustomMilestones] = useState<MilestoneTemplate[]>([]);
 
   const dispatch = useDispatch();
   const programs = useSelector((state: RootState) => state.programs.programs);
@@ -102,11 +111,11 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
         
         setAvailableMilestones(available);
         
-        // Also fetch custom milestones
+        // Also fetch custom milestone templates
         fetchCustomMilestones(application.type, application.subType);
         
         if (available.length === 0) {
-          setError("All milestones have been completed for this application.");
+          setError("All standard milestones have been completed for this application. You can add a custom milestone.");
         }
       } else {
         console.warn("Program not found for application type:", application.type, application.subType);
@@ -120,15 +129,24 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
 
   const fetchCustomMilestones = async (type: string, subType?: string) => {
     try {
-      const response = await getMilestoneTemplates(type, subType, true);
-      
-      if (response && Array.isArray(response)) {
-        const milestoneNames = response.map(item => item.name);
-        setCustomMilestones(milestoneNames);
+      const templates = await getMilestoneTemplates(type, subType, true);
+      if (templates) {
+        setCustomMilestones(templates);
+        
+        // Add custom milestones to available milestones if they're not already completed
+        const completedMilestones = new Set<string>(
+          application?.statusHistory.map((status) => status.statusName) || []
+        );
+        
+        const customMilestoneNames = templates
+          .map(template => template.name)
+          .filter(name => !completedMilestones.has(name));
+        
+        setAvailableMilestones(prev => [...prev, ...customMilestoneNames]);
       }
     } catch (error) {
       console.error('Error fetching custom milestones:', error);
-      handleError(error, 'Failed to load custom milestones');
+      // Don't set error state here, as we still want to show standard milestones
     }
   };
 
@@ -153,15 +171,15 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
       setLoading(true);
       setError(null);
       
-      await apiCall<any>('post', `/applications/${application.id}/status`, {
+      await api.post(`/applications/${application.id}/status`, {
         statusName: selectedMilestone,
         statusDate: selectedDate.toISOString(),
         notes: updateNotes
       });
 
       // Refresh applications data
-      const applicationsResponse = await apiCall<any>('get', '/applications');
-      dispatch(setApplications(applicationsResponse));
+      const applicationsResponse = await api.get('/applications');
+      dispatch(setApplications(applicationsResponse.data));
       
       // Call the callback if provided
       if (onStatusUpdated) {
@@ -174,8 +192,8 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
       // Close the dialog
       onClose();
     } catch (error: any) {
-      console.error('Failed to update status:', error);
-      setError(error.message || 'Failed to update application status');
+      handleError(error, 'Failed to update application status');
+      setError(error.response?.data?.message || 'Failed to update application status');
     } finally {
       setLoading(false);
     }
@@ -187,9 +205,6 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
       onCustomMilestoneClick();
     }
   };
-
-  // Combine program milestones and custom milestones
-  const allMilestones = [...new Set([...availableMilestones, ...customMilestones])];
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -203,15 +218,19 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
       </DialogTitle>
       <DialogContent>
         {error && (
-          <Alert severity="error" sx={{ my: 2 }}>
-            {error}
-          </Alert>
+          <Feedback
+            type="error"
+            message={error}
+            dismissible
+            onDismiss={() => setError(null)}
+            sx={{ my: 2 }}
+          />
         )}
         
         <Box sx={{ mt: 2 }}>
           <FormControl fullWidth sx={{ mb: 2 }}>
             <Autocomplete
-              options={allMilestones}
+              options={availableMilestones}
               value={selectedMilestone}
               onChange={(_, value) => {
                 setSelectedMilestone(value || '');
@@ -274,27 +293,26 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
           <TextField
             label="Notes (Optional)"
             multiline
-            rows={3}
-            fullWidth
-            margin="normal"
+            rows={4}
             value={updateNotes}
             onChange={(e) => setUpdateNotes(e.target.value)}
+            fullWidth
+            margin="normal"
           />
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
         <Button 
           onClick={handleSubmit} 
-          variant="contained"
-          disabled={!selectedMilestone || !selectedDate || loading}
+          variant="contained" 
+          color="primary"
+          disabled={loading || !selectedMilestone || !selectedDate}
+          startIcon={loading ? <CircularProgress size={20} /> : null}
         >
-          {loading ? (
-            <>
-              <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
-              Saving...
-            </>
-          ) : 'Save Update'}
+          {loading ? 'Updating...' : 'Update Status'}
         </Button>
       </DialogActions>
     </Dialog>
