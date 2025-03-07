@@ -25,7 +25,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import AddIcon from '@mui/icons-material/Add';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
-import api, { apiCall } from '../../utils/api';
+import api, { apiCall, getMilestoneTemplates } from '../../utils/api';
 import { setApplications } from '../../store/slices/applicationSlice';
 import toast from 'react-hot-toast';
 import { handleError } from '../../utils/errorHandler';
@@ -120,10 +120,7 @@ const UpdateStatusDialog: React.FC<UpdateStatusDialogProps> = ({
 
   const fetchCustomMilestones = async (type: string, subType?: string) => {
     try {
-      const response = await apiCall<any>('get', `/milestones/templates/${type}`, {
-        subType: subType,
-        includeUnapproved: true
-      });
+      const response = await getMilestoneTemplates(type, subType, true);
       
       if (response && Array.isArray(response)) {
         const milestoneNames = response.map(item => item.name);
