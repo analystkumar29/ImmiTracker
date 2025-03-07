@@ -10,8 +10,9 @@ const generateToken = (userId: string): string => {
     throw new Error('JWT_SECRET is not defined');
   }
   const secret: Secret = process.env.JWT_SECRET;
+  const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
   const options: SignOptions = {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    expiresIn: expiresIn as jwt.SignOptions['expiresIn']
   };
   return jwt.sign({ userId }, secret, options);
 };
@@ -100,13 +101,13 @@ export const login = async (
 };
 
 export const updateProfile = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const { email, currentPassword, newPassword } = req.body;
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },

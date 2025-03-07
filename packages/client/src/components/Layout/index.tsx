@@ -12,14 +12,16 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   AccountCircle,
   Notifications as NotificationsIcon,
   ListAlt as ListAltIcon,
+  AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
-import { RootState } from '@/store';
+import { RootState, purgeStoredState } from '@/store';
 import { logout } from '@/store/slices/authSlice';
 
 const Layout = () => {
@@ -29,6 +31,7 @@ const Layout = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
   const { unreadCount } = useSelector((state: RootState) => state.notification);
+  const isAdmin = user?.role === 'ADMIN';
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -48,6 +51,11 @@ const Layout = () => {
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
+  };
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    handleClose();
   };
 
   return (
@@ -104,6 +112,17 @@ const Layout = () => {
               )}
             </IconButton>
 
+            {isAdmin && (
+              <IconButton
+                size="large"
+                aria-label="admin panel"
+                color="inherit"
+                onClick={() => navigate('/admin')}
+              >
+                <AdminIcon />
+              </IconButton>
+            )}
+
             <IconButton
               size="large"
               aria-label="account of current user"
@@ -129,9 +148,23 @@ const Layout = () => {
               open={Boolean(anchorEl)}
               onClose={handleClose}
             >
-              <MenuItem onClick={() => navigate('/applications')}>My Applications</MenuItem>
-              <MenuItem onClick={() => navigate('/applications/new')}>New Application</MenuItem>
-              <MenuItem onClick={() => navigate('/profile')}>Profile</MenuItem>
+              <MenuItem onClick={() => handleNavigate('/applications')}>My Applications</MenuItem>
+              <MenuItem onClick={() => handleNavigate('/applications/new')}>New Application</MenuItem>
+              <MenuItem onClick={() => handleNavigate('/profile')}>Profile</MenuItem>
+              
+              {isAdmin && (
+                <>
+                  <Divider />
+                  <MenuItem onClick={() => handleNavigate('/admin')}>
+                    Admin Dashboard
+                  </MenuItem>
+                  <MenuItem onClick={() => handleNavigate('/admin/flagged-items')}>
+                    Manage Flagged Items
+                  </MenuItem>
+                </>
+              )}
+              
+              <Divider />
               <MenuItem onClick={handleLogout}>Logout</MenuItem>
             </Menu>
           </Box>

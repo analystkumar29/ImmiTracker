@@ -16,7 +16,7 @@ import {
   useTheme,
   Alert
 } from '@mui/material';
-import api, { getMilestoneTemplates } from '../../utils/api';
+import api, { getMilestoneTemplates, getAllUniqueMilestoneTemplates } from '../../utils/api';
 import { toast } from 'react-hot-toast';
 import { handleError } from '../../utils/errorHandler';
 
@@ -45,7 +45,7 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
   applicationType,
   applicationSubtype
 }) => {
-  const [milestoneName, setMilestoneName] = useState('');
+  const [customMilestone, setCustomMilestone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<MilestoneTemplate[]>([]);
@@ -63,7 +63,7 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
   // Filter suggestions as user types
   useEffect(() => {
     if (suggestions.length > 0) {
-      const lowercaseInput = milestoneName.toLowerCase();
+      const lowercaseInput = customMilestone.toLowerCase();
       const filtered = suggestions
         .filter(template => template.name.toLowerCase().includes(lowercaseInput))
         .map(template => template.name);
@@ -76,7 +76,7 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
       
       setFilteredSuggestions([...filtered, ...commonMilestones]);
     }
-  }, [milestoneName, suggestions]);
+  }, [customMilestone, suggestions]);
 
   const getCommonMilestones = () => {
     // Common milestones that apply to most application types
@@ -97,47 +97,49 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
   };
 
   const fetchSuggestions = async () => {
-    setLoading(true);
     try {
-      // Fetch suggested templates from the server using the utility function
-      const templates = await getMilestoneTemplates(applicationType, applicationSubtype, true);
-      if (templates) {
-        setSuggestions(templates);
+      setLoading(true);
+      const templates = await getAllUniqueMilestoneTemplates(true);
+      
+      if (templates && templates.length > 0) {
+        // Sort by useCount (most used first)
+        const sortedTemplates = [...templates].sort((a, b) => b.useCount - a.useCount);
+        setSuggestions(sortedTemplates);
       }
     } catch (error) {
-      console.error('Error fetching milestone suggestions:', error);
-      setError('Failed to load suggestions');
-      
-      // Fall back to common milestones
-      setSuggestions([]);
+      handleError(error, 'Failed to fetch milestone suggestions');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!milestoneName.trim()) {
+    if (!customMilestone.trim()) {
       setError('Please enter a milestone name');
       return;
     }
 
-    setLoading(true);
     try {
-      // Submit the custom milestone to the server
+      setLoading(true);
+      
+      // Create the custom milestone in the database
       await api.post('/milestones/custom', {
-        name: milestoneName.trim(),
+        name: customMilestone,
         programType: applicationType,
         programSubType: applicationSubtype
       });
       
-      onAddMilestone(milestoneName.trim());
+      // Add the milestone to the parent component
+      onAddMilestone(customMilestone);
+      
+      // Show success message
+      toast.success('Custom milestone added');
+      
+      // Close the dialog
       onClose();
-      setMilestoneName('');
-      setError(null);
-      toast.success(`Added custom milestone: ${milestoneName.trim()}`);
     } catch (error) {
       handleError(error, 'Failed to add custom milestone');
-      setError('Failed to add custom milestone');
+      setError('Failed to add custom milestone. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -164,14 +166,14 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
             freeSolo
             options={filteredSuggestions}
             loading={loading}
-            value={milestoneName}
+            value={customMilestone}
             onChange={(_, newValue) => {
               if (typeof newValue === 'string') {
-                setMilestoneName(newValue);
+                setCustomMilestone(newValue);
               }
             }}
             onInputChange={(_, newInputValue) => {
-              setMilestoneName(newInputValue);
+              setCustomMilestone(newInputValue);
               setError(null);
             }}
             renderInput={(params) => (
@@ -209,7 +211,7 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
                 <Chip 
                   key={suggestion.id}
                   label={suggestion.name}
-                  onClick={() => setMilestoneName(suggestion.name)}
+                  onClick={() => setCustomMilestone(suggestion.name)}
                   color={suggestion.isApproved ? "primary" : "default"}
                   variant="outlined"
                   size="small"
@@ -229,7 +231,7 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
                 <Chip 
                   key={suggestion}
                   label={suggestion}
-                  onClick={() => setMilestoneName(suggestion)}
+                  onClick={() => setCustomMilestone(suggestion)}
                   color="primary"
                   variant="outlined"
                   size="small"
@@ -246,14 +248,14 @@ const CustomMilestoneDialog: React.FC<CustomMilestoneDialogProps> = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary">
+        <Button onClick={onClose} color="inherit">
           Cancel
         </Button>
         <Button 
           onClick={handleSubmit} 
-          color="primary"
-          disabled={!milestoneName.trim() || loading}
+          color="primary" 
           variant="contained"
+          disabled={loading || !customMilestone.trim()}
         >
           {loading ? <CircularProgress size={24} /> : 'Add Milestone'}
         </Button>

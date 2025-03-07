@@ -14,10 +14,23 @@ interface AuthState {
   error: string | null;
 }
 
+// Helper function to check if token exists in localStorage
+const getTokenFromStorage = (): string | null => {
+  try {
+    return localStorage.getItem('token');
+  } catch (error) {
+    console.error('Error accessing localStorage:', error);
+    return null;
+  }
+};
+
+// Get initial token from localStorage
+const storedToken = getTokenFromStorage();
+
 const initialState: AuthState = {
   user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: false,
+  token: storedToken,
+  isAuthenticated: !!storedToken, // Set isAuthenticated based on token existence
   isLoading: false,
   error: null,
 };
@@ -34,13 +47,28 @@ const authSlice = createSlice({
       state.user = user;
       state.token = token;
       state.isAuthenticated = true;
-      localStorage.setItem('token', token);
+      
+      // Store token in localStorage
+      try {
+        localStorage.setItem('token', token);
+        // Also store user ID to help with data separation
+        localStorage.setItem('userId', user.id);
+      } catch (error) {
+        console.error('Failed to save auth data to localStorage:', error);
+      }
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
-      localStorage.removeItem('token');
+      
+      // Clear token from localStorage
+      try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+      } catch (error) {
+        console.error('Failed to remove auth data from localStorage:', error);
+      }
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
@@ -48,8 +76,20 @@ const authSlice = createSlice({
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
     },
+    // Add a reducer to check and validate token
+    validateToken: (state) => {
+      const token = getTokenFromStorage();
+      if (!token) {
+        state.user = null;
+        state.token = null;
+        state.isAuthenticated = false;
+      } else if (!state.token) {
+        state.token = token;
+        state.isAuthenticated = true;
+      }
+    }
   },
 });
 
-export const { setCredentials, logout, setLoading, setError } = authSlice.actions;
+export const { setCredentials, logout, setLoading, setError, validateToken } = authSlice.actions;
 export default authSlice.reducer; 

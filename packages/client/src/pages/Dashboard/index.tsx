@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -47,7 +47,8 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { format, addDays, addMonths, parseISO } from 'date-fns';
-import { setApplications } from '../../store/slices/applicationSlice';
+import { setApplications } from '../../store/slices/applicationsSlice';
+import { fetchPrograms } from '../../store/slices/programsSlice';
 import { RootState } from '../../store';
 import { getResponsiveTimelineStyles, getResponsiveConnectorStyles } from '../../utils/responsiveUtils';
 import MilestoneProgressBar from '../../components/MilestoneProgressBar';
@@ -63,6 +64,8 @@ import {
   calculateExpectedDates as calculateMilestoneDates,
   getMilestonesForApplication 
 } from '../../utils/milestoneUtils';
+import UpdateStatusDialog from '../../components/UpdateStatusDialog';
+import CustomMilestoneDialog from '../../components/CustomMilestoneDialog';
 
 // Define Milestone interface to match the one in MilestoneProgressBar
 interface Milestone {
@@ -98,8 +101,10 @@ const Dashboard: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  const { applications, loading } = useSelector((state: RootState) => state.application);
-  const [programs, setPrograms] = useState<Program[]>([]);
+  const { applications, loading } = useSelector((state: RootState) => state.applications);
+  const programs = useSelector((state: RootState) => state.programs.programs);
+  const programsLoading = useSelector((state: RootState) => state.programs.loading);
+  const programsError = useSelector((state: RootState) => state.programs.error);
   const [error, setError] = useState<string | null>(null);
   
   // State for the update milestone dialog
@@ -112,30 +117,86 @@ const Dashboard: React.FC = () => {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [availableMilestones, setAvailableMilestones] = useState<string[]>([]);
   const [milestonesLoading, setMilestonesLoading] = useState<boolean>(false);
+  const [isCustomMilestoneDialogOpen, setIsCustomMilestoneDialogOpen] = useState(false);
+  
+  // Add loading and error states for applications
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [applicationsError, setApplicationsError] = useState<string | null>(null);
   
   useEffect(() => {
-    // Fetch applications and programs
-    const fetchData = async () => {
-      try {
-        // Fetch applications
-        const applicationsResponse = await api.get('/applications');
-        dispatch(setApplications(applicationsResponse.data));
-
-        // Fetch programs
-        const programsResponse = await api.get('/programs');
-        
-        if (programsResponse.data) {
-          setPrograms(programsResponse.data);
-        }
-      } catch (error: any) {
-        setError(error.message || 'Failed to fetch data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [dispatch]);
+  }, []);
+  
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Always attempt to fetch applications from the API to ensure we have the latest data
+      await fetchApplications();
+      
+      // Load programs if needed
+      if (programs.length === 0 && !programsLoading) {
+        dispatch(fetchPrograms());
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load dashboard data');
+    }
+  };
+  
+  // Update the fetchApplications function
+  const fetchApplications = async () => {
+    try {
+      setApplicationsLoading(true);
+      setApplicationsError(null);
+      
+      const response = await api.get('/applications');
+      
+      if (response.data && Array.isArray(response.data)) {
+        // Ensure we dispatch the proper action to update the Redux store
+        dispatch(setApplications(response.data));
+        return response.data;
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch applications:', error);
+      setApplicationsError(error.message || 'Failed to load applications');
+      if (error.response && error.response.status === 401) {
+        // Handle token expiration
+        toast.error('Your session has expired. Please log in again.');
+        // Optionally, redirect to login
+        // navigate('/login');
+      } else {
+        toast.error('Failed to load applications. Please try refreshing the page.');
+      }
+      return [];
+    } finally {
+      setApplicationsLoading(false);
+    }
+  };
+
+  // Make sure programs are loaded
+  useEffect(() => {
+    if (programs.length === 0 && !programsLoading) {
+      dispatch(fetchPrograms());
+    }
+  }, [dispatch, programs.length, programsLoading]);
+
+  // Update useEffect for fetching applications
+  useEffect(() => {
+    fetchApplications();
+    
+    // Set up polling for refreshing application data
+    const interval = setInterval(() => {
+      fetchApplications();
+    }, 30000); // 30 second interval
+    
+    return () => clearInterval(interval);
+  }, []);
   
   if (loading || !applications) {
     return (
@@ -160,6 +221,29 @@ const Dashboard: React.FC = () => {
           onClick={() => navigate('/applications/new')}
         >
           Create Your First Application
+        </Button>
+      </Box>
+    );
+  }
+  
+  if (applicationsLoading && applications.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  if (applicationsError) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="error">{applicationsError}</Typography>
+        <Button 
+          variant="contained" 
+          sx={{ mt: 2 }} 
+          onClick={fetchApplications}
+        >
+          Try Again
         </Button>
       </Box>
     );
@@ -314,98 +398,79 @@ const Dashboard: React.FC = () => {
 
   // Handle opening the update milestone dialog
   const handleOpenUpdateDialog = (application: any) => {
-    console.log("Opening update dialog for application:", application);
     setSelectedApplication(application);
-    setSelectedMilestone(null);
-    setSelectedDate(new Date());
-    setUpdateNotes('');
-    setUpdateError(null);
     setUpdateDialogOpen(true);
-    setMilestonesLoading(true);
-    
-    // Populate available milestones
-    const program = findProgramForApplication(programs, application.type, application.subType);
-    if (program) {
-      const completedMilestones = new Set<string>(
-        application.statusHistory.map((status: StatusUpdate) => status.statusName)
-      );
-      const available = program.milestoneUpdates.filter((milestone: string) => !completedMilestones.has(milestone));
-      setAvailableMilestones(available);
-      
-      // Log for debugging
-      console.log("Available milestones:", available);
-      console.log("Completed milestones:", Array.from(completedMilestones));
-      console.log("All program milestones:", program.milestoneUpdates);
-      
-      if (available.length === 0) {
-        setUpdateError("All milestones have been completed for this application.");
-      }
-    } else {
-      console.warn("Program not found for application type:", application.type, application.subType);
-      setAvailableMilestones([]);
-      setUpdateError("Program information not found. Cannot update milestones.");
-    }
-    setMilestonesLoading(false);
   };
 
-  // Handle saving the milestone update
-  const handleMilestoneSubmit = async () => {
-    if (!selectedApplication || !selectedMilestone) {
-      setUpdateError("Please select a milestone");
-      return;
-    }
+  // Handle custom milestone dialog
+  const handleOpenCustomMilestoneDialog = () => {
+    setIsCustomMilestoneDialogOpen(true);
+  };
 
-    if (!selectedDate) {
-      setUpdateError("Please select a date");
-      return;
-    }
+  const handleCloseCustomMilestoneDialog = () => {
+    setIsCustomMilestoneDialogOpen(false);
+  };
+
+  const handleAddCustomMilestone = async (milestoneName: string) => {
+    if (!selectedApplication) return;
 
     try {
-      setUpdateLoading(true);
-      setUpdateError(null);
-      
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Please log in to continue');
-      }
-      
-      console.log("Submitting milestone update:", {
-        applicationId: selectedApplication.id,
-        statusName: selectedMilestone,
-        statusDate: selectedDate.toISOString(),
-        notes: updateNotes
+      // Create the custom milestone
+      await api.post('/api/milestones/custom', {
+        name: milestoneName,
+        programType: selectedApplication.type,
+        programSubType: selectedApplication.subType
       });
-      
-      const response = await api.post('/applications/' + selectedApplication.id + '/status', {
-        statusName: selectedMilestone,
-        statusDate: selectedDate.toISOString(),
-        notes: updateNotes
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+
+      // Add the milestone status update to the application
+      await api.post(`/applications/${selectedApplication.id}/status`, {
+        statusName: milestoneName,
+        statusDate: new Date().toISOString(),
+        notes: 'Custom milestone added'
       });
-      
-      console.log("Milestone update response:", response);
 
       // Refresh applications data
       const applicationsResponse = await api.get('/applications');
       dispatch(setApplications(applicationsResponse.data));
-      
-      setUpdateDialogOpen(false);
-      setSelectedMilestone(null);
-      setUpdateNotes('');
-      
-      // Show success message
-      toast.success('Milestone updated successfully');
+
+      toast.success('Custom milestone added successfully');
     } catch (error: any) {
-      console.error('Failed to update milestone:', error);
-      toast.error(error.message || 'Failed to update milestone');
-    } finally {
-      setUpdateLoading(false);
+      console.error('Failed to add custom milestone:', error);
+      toast.error(error.message || 'Failed to add custom milestone');
     }
   };
-  
+
+  // Update the handleViewDetails function to properly set the selected application
+  const handleViewDetails = (applicationId: string) => {
+    console.log('View details clicked for application:', applicationId);
+    
+    if (!applicationId) {
+      console.error('No application ID provided');
+      toast.error('Application ID is missing');
+      return;
+    }
+    
+    // Find the application in our local state
+    const application = applications.find(app => app.id === applicationId);
+    
+    // If found, set it as the selected application in Redux before navigating
+    if (application) {
+      console.log('Setting selected application:', application);
+      try {
+        dispatch(setSelectedApplication(application));
+        
+        // Navigate to the application details page
+        navigate(`/applications/${applicationId}`);
+      } catch (error) {
+        console.error('Error setting selected application:', error);
+        toast.error('Error navigating to application details');
+      }
+    } else {
+      console.error('Application not found with ID:', applicationId);
+      toast.error('Application details not found');
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {isMobile ? (
@@ -442,7 +507,7 @@ const Dashboard: React.FC = () => {
             <Button 
               variant="contained" 
               color="primary"
-              onClick={() => navigate(`/applications/${primaryApplication.id}`)}
+              onClick={() => handleViewDetails(primaryApplication.id)}
               sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               View Details
@@ -614,7 +679,7 @@ const Dashboard: React.FC = () => {
                       <Button
                         variant="contained"
                         sx={{ flex: 1 }}
-                        onClick={() => navigate(`/applications/${application.id}`)}
+                        onClick={() => handleViewDetails(application.id)}
                       >
                         View Details
                       </Button>
@@ -627,130 +692,28 @@ const Dashboard: React.FC = () => {
         </>
       )}
       
-      {/* Update Milestone Dialog */}
-      <Dialog open={updateDialogOpen} onClose={() => setUpdateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          Update Application Status
-        </DialogTitle>
-        <DialogContent>
-          {updateError && (
-            <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{updateError}</Alert>
-          )}
-          
-          <Box sx={{ mt: 2 }}>
-            {selectedApplication && (
-              <Typography variant="subtitle1" gutterBottom>
-                Application: {selectedApplication?.type} - {selectedApplication?.subType}
-              </Typography>
-            )}
-            
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <Box sx={{ mt: 3, mb: 2 }}>
-                {milestonesLoading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-                    <CircularProgress size={24} />
-                  </Box>
-                ) : availableMilestones.length > 0 ? (
-                  <>
-                    <FormControl fullWidth variant="outlined" sx={{ mb: 3 }}>
-                      <InputLabel id="milestone-select-label">Milestone</InputLabel>
-                      <Select
-                        labelId="milestone-select-label"
-                        id="milestone-select"
-                        value={selectedMilestone || ''}
-                        onChange={(e) => setSelectedMilestone(e.target.value)}
-                        label="Milestone"
-                        required
-                      >
-                        {availableMilestones.map((milestone) => (
-                          <MenuItem key={milestone} value={milestone}>
-                            {milestone}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      <FormHelperText>Select an upcoming milestone to mark as completed</FormHelperText>
-                    </FormControl>
-                  
-                    <DatePicker
-                      label="Date"
-                      value={selectedDate}
-                      onChange={(newValue) => setSelectedDate(newValue)}
-                      sx={{ width: '100%', mb: 3 }}
-                      maxDate={new Date()} // Prevents selecting future dates
-                    />
-                    
-                    <TextField
-                      label="Notes"
-                      multiline
-                      rows={4}
-                      fullWidth
-                      value={updateNotes}
-                      onChange={(e) => setUpdateNotes(e.target.value)}
-                      variant="outlined"
-                    />
-                  </>
-                ) : (
-                  <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-                    All milestones have been completed for this application.
-                  </Alert>
-                )}
-              </Box>
-            </LocalizationProvider>
-          </Box>
-          
-          {/* Expected milestone dates */}
-          {selectedApplication && !milestonesLoading && (
-            <Box sx={{ mt: 3, mb: 2 }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                <InfoIcon fontSize="small" sx={{ mr: 1 }} color="primary" />
-                Expected Milestone Dates
-              </Typography>
-              
-              {availableMilestones.length > 0 ? (
-                <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
-                  {availableMilestones.map((milestone) => {
-                    const expectedDates = calculateExpectedDates(selectedApplication);
-                    const expectedDate = expectedDates[milestone] 
-                      ? format(expectedDates[milestone], 'MMM d, yyyy')
-                      : 'Not available';
-                      
-                    return (
-                      <ListItem key={milestone} sx={{ py: 0.5 }}>
-                        <ListItemText 
-                          primary={milestone} 
-                          secondary={`Expected: ${expectedDate}`}
-                          primaryTypographyProps={{ variant: 'body2' }}
-                          secondaryTypographyProps={{ variant: 'caption' }}
-                        />
-                      </ListItem>
-                    );
-                  })}
-                </List>
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  No upcoming milestones for this application.
-                </Typography>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setUpdateDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={handleMilestoneSubmit} 
-            color="primary" 
-            variant="contained"
-            disabled={!selectedMilestone || updateLoading || availableMilestones.length === 0}
-          >
-            {updateLoading ? (
-              <>
-                <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
-                Saving...
-              </>
-            ) : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Update Status Dialog */}
+      <UpdateStatusDialog
+        open={updateDialogOpen}
+        onClose={() => setUpdateDialogOpen(false)}
+        application={selectedApplication}
+        onCustomMilestoneClick={handleOpenCustomMilestoneDialog}
+        onStatusUpdated={() => {
+          // Refresh applications
+          fetchData();
+        }}
+      />
+
+      {/* Custom Milestone Dialog */}
+      {selectedApplication && (
+        <CustomMilestoneDialog
+          open={isCustomMilestoneDialogOpen}
+          onClose={handleCloseCustomMilestoneDialog}
+          onAddMilestone={handleAddCustomMilestone}
+          applicationType={selectedApplication.type}
+          applicationSubtype={selectedApplication.subType}
+        />
+      )}
     </Box>
   );
 };

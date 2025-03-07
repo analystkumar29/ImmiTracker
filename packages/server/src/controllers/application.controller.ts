@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../index';
 import { AppError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../types/express';
@@ -7,13 +7,13 @@ import { MilestoneService } from '../services/milestone.service';
 const milestoneService = new MilestoneService();
 
 export const createApplication = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const { type, subType, country, city, submissionDate } = req.body;
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
 
     // Validate required fields
     if (!type || !subType || !country || !city || !submissionDate) {
@@ -101,12 +101,12 @@ export const createApplication = async (
 };
 
 export const getApplications = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
 
     const applications = await prisma.application.findMany({
       where: {
@@ -131,13 +131,13 @@ export const getApplications = async (
 };
 
 export const getApplication = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
 
     const application = await prisma.application.findFirst({
       where: {
@@ -164,13 +164,13 @@ export const getApplication = async (
 };
 
 export const updateApplication = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
     const { type, subType, country, city, submissionDate, currentStatus } = req.body;
 
     // Check if application exists and belongs to user
@@ -218,13 +218,13 @@ export const updateApplication = async (
 };
 
 export const deleteApplication = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
 
     // Check if application exists and belongs to user
     const existingApplication = await prisma.application.findFirst({
@@ -250,13 +250,13 @@ export const deleteApplication = async (
 };
 
 export const updateApplicationStatus = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
     const { statusName, statusDate, notes } = req.body;
 
     // Check if application exists and belongs to user
@@ -300,12 +300,12 @@ export const updateApplicationStatus = async (
 };
 
 export const deleteAllApplications = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const userId = req.user.id;
+    const userId = (req as AuthenticatedRequest).user.id;
 
     // Delete all status history entries for the user's applications first
     await prisma.statusHistory.deleteMany({

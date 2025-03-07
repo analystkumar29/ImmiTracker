@@ -62,8 +62,21 @@ export const fetchApplications = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/applications');
-      return response.data;
+      
+      // Validate that we received an array of applications
+      if (Array.isArray(response.data)) {
+        console.log('Fetched applications:', response.data.length);
+        return response.data;
+      } else {
+        console.error('Invalid response format:', response.data);
+        return rejectWithValue('Invalid response format from server');
+      }
     } catch (error: any) {
+      console.error('Error fetching applications:', error);
+      // Handle authentication errors
+      if (error.response?.status === 401) {
+        return rejectWithValue('Authentication error. Please log in again.');
+      }
       return rejectWithValue(error.message || 'Failed to fetch applications');
     }
   }
@@ -110,6 +123,21 @@ const applicationSlice = createSlice({
       .addCase(createApplication.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to create application';
+      })
+      .addCase(fetchApplications.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchApplications.fulfilled, (state, action) => {
+        state.loading = false;
+        state.applications = action.payload;
+      })
+      .addCase(fetchApplications.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string || 'Failed to fetch applications';
+      })
+      .addCase('auth/logout', (state) => {
+        return initialState;
       });
   },
 });

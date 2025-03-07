@@ -24,7 +24,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'src': path.resolve(__dirname, './src'),
+      'components': path.resolve(__dirname, './src/components'),
+      'utils': path.resolve(__dirname, './src/utils'),
+      'pages': path.resolve(__dirname, './src/pages'),
+      'store': path.resolve(__dirname, './src/store'),
     },
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
   },
   server: {
     port: 5173,
@@ -84,5 +90,14 @@ export default defineConfig({
       }
     }
   },
-  cacheDir: path.resolve(__dirname, 'node_modules/.vite_custom_cache')
+  cacheDir: path.resolve(__dirname, 'node_modules/.vite_custom_cache'),
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.ts'],
+    coverage: {
+      reporter: ['text', 'html'],
+      exclude: ['node_modules/', 'src/setupTests.ts'],
+    },
+  },
 }); 

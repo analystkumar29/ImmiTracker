@@ -7,19 +7,16 @@ import {
   updateApplicationStatus,
   deleteAllApplications,
 } from '../controllers/application.controller';
-import { protect } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = express.Router();
 
-// Protect all routes
-router.use(protect);
-
-// Application routes
-router.post('/', createApplication);
-router.get('/', getApplications);
-router.get('/:id', getApplication);
-router.put('/:id', updateApplication);
-router.post('/:id/status', updateApplicationStatus);
-router.delete('/clear-all', deleteAllApplications);
+// Application routes - all protected
+router.post('/', authenticate, createApplication);
+router.get('/', authenticate, getApplications);
+router.get('/:id', authenticate, getApplication);
+router.put('/:id', authenticate, updateApplication);
+router.post('/:id/status', authenticate, updateApplicationStatus);
+router.delete('/clear-all', authenticate, authorize(['ADMIN']), deleteAllApplications);
 
 export default router; 

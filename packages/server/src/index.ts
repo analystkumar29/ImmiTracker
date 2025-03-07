@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes';
 import programRoutes from './routes/program.routes';
 import programsRouter from './routes/programs';
 import milestoneRoutes from './routes/milestone.routes';
+import applicationTypeRoutes from './routes/applicationType.routes';
 import { errorHandler } from './middleware/errorHandler';
 import fs from 'fs';
 import path from 'path';
@@ -30,8 +31,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/programs', programRoutes);
-app.use('/api/programs', programsRouter);
 app.use('/api/milestones', milestoneRoutes);
+app.use('/api/application-types', applicationTypeRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
@@ -43,11 +44,22 @@ setInterval(scheduledTasks.checkAndPromotePopularMilestones, 24 * 60 * 60 * 1000
 // Run duplicate milestone check once every week (7 days)
 setInterval(scheduledTasks.checkForDuplicateMilestones, 7 * 24 * 60 * 60 * 1000);
 
+// Run flagged milestone processing once every day
+setInterval(scheduledTasks.processHighlyFlaggedMilestones, 24 * 60 * 60 * 1000);
+
+// Run application type tasks once every day
+setInterval(scheduledTasks.promotePopularApplicationTypes, 24 * 60 * 60 * 1000);
+setInterval(scheduledTasks.processHighlyFlaggedApplicationTypes, 24 * 60 * 60 * 1000);
+
 // Initial run of scheduled tasks
 setTimeout(() => {
+  // Run all scheduled tasks
   scheduledTasks.checkAndPromotePopularMilestones();
   scheduledTasks.checkForDuplicateMilestones();
-}, 10 * 60 * 1000); // Run initial check after 10 minutes
+  scheduledTasks.processHighlyFlaggedMilestones();
+  scheduledTasks.promotePopularApplicationTypes();
+  scheduledTasks.processHighlyFlaggedApplicationTypes();
+}, 15 * 60 * 1000); // Run initial check after 15 minutes
 
 // Start server
 const PORT = Number(process.env.PORT) || 3000;

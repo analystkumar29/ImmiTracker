@@ -11,6 +11,7 @@
     "dev:server": "npm run dev -w server",
     "build": "npm run build -ws",
     "test": "npm run test -ws",
+    "test:coverage": "npm run test:coverage -ws",
     "lint": "npm run lint -ws"
   },
   "devDependencies": {
@@ -21,6 +22,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^2.6.0"
+    "@reduxjs/toolkit": "^2.6.0",
+    "redux-persist": "^6.0.0"
   }
 }

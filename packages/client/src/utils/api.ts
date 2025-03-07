@@ -5,7 +5,7 @@ import { logout } from '../store/slices/authSlice';
 import { handleError, ErrorType } from './errorHandler';
 
 // Base API URL - use environment variable if available, otherwise fallback to localhost
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -136,12 +136,20 @@ export const apiCall = async <T>(
 // Get milestone templates by program type and subtype
 export const getMilestoneTemplates = async (programType: string, programSubType?: string, includeUnapproved = false) => {
   try {
-    const params = new URLSearchParams();
-    if (programType) params.append('programType', programType);
-    if (programSubType) params.append('programSubType', programSubType);
-    params.append('includeUnapproved', String(includeUnapproved));
-    
-    return await apiCall<any>('get', `/milestones/templates?${params.toString()}`);
+    // If programType is provided, use the path parameter endpoint
+    if (programType) {
+      const params = new URLSearchParams();
+      if (programSubType) params.append('subType', programSubType);
+      params.append('includeUnapproved', String(includeUnapproved));
+      
+      return await apiCall<any>('get', `/milestones/templates/${encodeURIComponent(programType)}?${params.toString()}`);
+    } else {
+      // If no programType, use the general endpoint
+      const params = new URLSearchParams();
+      params.append('includeUnapproved', String(includeUnapproved));
+      
+      return await apiCall<any>('get', `/milestones/templates?${params.toString()}`);
+    }
   } catch (error) {
     handleError(error, 'Failed to fetch milestone templates');
     throw error;
@@ -257,6 +265,76 @@ export const unflagApplicationType = async (typeId: string) => {
     );
   } catch (error) {
     handleError(error, 'Failed to unflag application type');
+    throw error;
+  }
+};
+
+export const getAllUniqueMilestoneTemplates = async (includeUnapproved = false) => {
+  try {
+    const params = new URLSearchParams();
+    if (includeUnapproved) {
+      params.append('includeUnapproved', 'true');
+    }
+    
+    const response = await axios.get(`/api/milestones/templates/all/unique?${params.toString()}`);
+    return response.data;
+  } catch (error) {
+    handleError(error, 'Failed to fetch milestone templates');
+    return [];
+  }
+};
+
+export const updateApplicationStatus = async (applicationId: string, statusUpdate: {
+  statusName: string;
+  statusDate: string;
+  notes?: string;
+}) => {
+  try {
+    const response = await axios.post(`/api/applications/${applicationId}/status`, statusUpdate);
+    return response.data;
+  } catch (error) {
+    handleError(error, 'Failed to update application status');
+    throw error;
+  }
+};
+
+/**
+ * Get milestone templates grouped by category
+ */
+export const getMilestoneTemplatesByCategory = async (programType?: string, programSubType?: string) => {
+  try {
+    const params = new URLSearchParams();
+    if (programType) params.append('programType', programType);
+    if (programSubType) params.append('programSubType', programSubType);
+    
+    return await apiCall<Record<string, any[]>>('get', `/milestones/templates/category?${params.toString()}`);
+  } catch (error) {
+    handleError(error, 'Failed to fetch milestone templates by category');
+    throw error;
+  }
+};
+
+/**
+ * Run milestone normalization process (admin only)
+ */
+export const normalizeMilestones = async (merge = false) => {
+  try {
+    const params = new URLSearchParams();
+    params.append('merge', merge.toString());
+    
+    return await apiCall<any>(
+      'post', 
+      `/milestones/normalize?${params.toString()}`,
+      null,
+      {
+        showSuccessToast: true,
+        successMessage: merge 
+          ? 'Milestone normalization and merging completed successfully' 
+          : 'Milestone normalization completed successfully'
+      }
+    );
+  } catch (error) {
+    handleError(error, 'Failed to normalize milestones');
     throw error;
   }
 }; 

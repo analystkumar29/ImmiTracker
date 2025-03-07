@@ -10,6 +10,8 @@ interface Milestone {
   notes?: string;
   expectedDate?: string;
   isCustom?: boolean;
+  category?: string;
+  normalizedName?: string;
 }
 
 interface StatusUpdate {
@@ -19,6 +21,49 @@ interface StatusUpdate {
   notes?: string;
   milestoneId?: string;
 }
+
+// Milestone categories
+export const MILESTONE_CATEGORIES = {
+  APPLICATION: 'application',
+  BIOMETRICS: 'biometrics',
+  MEDICAL: 'medical',
+  DOCUMENT: 'document',
+  DECISION: 'decision',
+  BACKGROUND_CHECK: 'background_check',
+  OTHER: 'other'
+};
+
+/**
+ * Normalizes a milestone name by removing program type references and standardizing terminology
+ * @param name The original milestone name
+ * @returns Normalized milestone name
+ */
+export const normalizeMilestoneName = (name: string): string => {
+  // Remove program type in parentheses
+  const baseName = name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+  
+  // Standardize common variations
+  return baseName
+    .toLowerCase()
+    .replace(/completion|completed|complete/g, 'completed')
+    .replace(/required|requested|requirement/g, 'required')
+    .replace(/submission|submitted|submit/g, 'submitted')
+    .replace(/instruction|instructions/g, 'instruction')
+    .replace(/received|receipt/g, 'received')
+    .replace(/passed|passing/g, 'passed')
+    .replace(/assessment|assessed|assessing/g, 'assessment')
+    .replace(/\s+/g, '_'); // Replace spaces with underscores
+};
+
+/**
+ * Determines if two milestone names are semantically similar
+ * @param name1 First milestone name
+ * @param name2 Second milestone name
+ * @returns Boolean indicating if the names are similar
+ */
+export const areSimilarMilestoneNames = (name1: string, name2: string): boolean => {
+  return normalizeMilestoneName(name1) === normalizeMilestoneName(name2);
+};
 
 /**
  * Get default milestones for an application type
@@ -196,27 +241,6 @@ export const getMilestonesForApplication = (application: any, programs: any[]): 
   
   // Merge and return unique milestones
   return mergeMilestones(defaultMilestones, customMilestones);
-};
-
-/**
- * Normalize a milestone name for comparison
- * 
- * @param name Milestone name
- * @returns Normalized name (lowercase, no special chars)
- */
-export const normalizeMilestoneName = (name: string): string => {
-  return name.toLowerCase().replace(/[^a-z0-9]/gi, '');
-};
-
-/**
- * Check if two milestone names are similar (normalized comparison)
- * 
- * @param name1 First milestone name
- * @param name2 Second milestone name
- * @returns True if names are similar
- */
-export const areSimilarMilestoneNames = (name1: string, name2: string): boolean => {
-  return normalizeMilestoneName(name1) === normalizeMilestoneName(name2);
 };
 
 /**

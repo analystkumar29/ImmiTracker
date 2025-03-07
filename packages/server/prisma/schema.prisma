@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,21 +8,24 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  passwordHash  String
-  role          UserRole      @default(USER)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  applications  Application[]
-  notifications Notification[]
+  id                String              @id @default(uuid())
+  email             String              @unique
+  passwordHash      String
+  role              UserRole            @default(USER)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdAppTypes   ApplicationType[]   @relation("CreatedAppTypes")
+  applications      Application[]
   createdMilestones MilestoneTemplate[] @relation("CreatedBy")
+  notifications     Notification[]
+  flaggedAppTypes   ApplicationType[]   @relation("FlaggedAppTypes")
+  flaggedMilestones MilestoneTemplate[] @relation("FlaggedMilestones")
 
   @@map("users")
 }
 
 model Application {
-  id             String          @id @default(uuid())
+  id             String           @id @default(uuid())
   userId         String
   type           String
   subType        String
@@ -33,9 +33,11 @@ model Application {
   city           String
   submissionDate DateTime
   currentStatus  String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  user           User            @relation(fields: [userId], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  appTypeId      String?
+  appType        ApplicationType? @relation(fields: [appTypeId], references: [id])
+  user           User             @relation(fields: [userId], references: [id])
   statusHistory  StatusHistory[]
 
   @@map("applications")
@@ -48,8 +50,8 @@ model StatusHistory {
   statusDate    DateTime
   notes         String?
   createdAt     DateTime    @default(now())
-  application   Application @relation(fields: [applicationId], references: [id])
   milestoneId   String?
+  application   Application @relation(fields: [applicationId], references: [id])
   milestone     Milestone?  @relation(fields: [milestoneId], references: [id])
 
   @@map("status_history")
@@ -67,46 +69,75 @@ model Notification {
   @@map("notifications")
 }
 
-// New models for milestone system
 model Milestone {
-  id            String          @id @default(uuid())
-  name          String
-  description   String?
-  programType   String          // e.g., "visitor_visa", "study_permit"
-  programSubType String?        // Optional subtype
-  isDefault     Boolean         @default(false)
-  order         Int             @default(0)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  statusUpdates StatusHistory[]
-  templateId    String?
-  template      MilestoneTemplate? @relation(fields: [templateId], references: [id])
+  id             String             @id @default(uuid())
+  name           String
+  description    String?
+  programType    String
+  programSubType String?
+  isDefault      Boolean            @default(false)
+  order          Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  templateId     String?
+  template       MilestoneTemplate? @relation(fields: [templateId], references: [id])
+  statusUpdates  StatusHistory[]
 
-  @@map("milestones")
   @@index([programType, programSubType])
+  @@map("milestones")
 }
 
 model MilestoneTemplate {
-  id            String      @id @default(uuid())
-  name          String
-  normalizedName String     // Lowercase, no spaces/special chars for matching
-  description   String?
-  programType   String      // e.g., "visitor_visa", "study_permit"
-  programSubType String?    // Optional subtype
-  isApproved    Boolean     @default(false)
-  useCount      Int         @default(0)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  createdById   String?
-  createdBy     User?       @relation("CreatedBy", fields: [createdById], references: [id])
-  milestones    Milestone[]
+  id             String              @id @default(uuid())
+  name           String
+  normalizedName String
+  description    String?
+  programType    String
+  programSubType String?
+  isApproved     Boolean             @default(false)
+  useCount       Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  createdById    String?
+  flagCount      Int                 @default(0)
+  isDeprecated   Boolean             @default(false)
+  canonicalId    String?
+  category       String?             // For grouping similar milestones (medical, biometrics, etc.)
+  displayOrder   Int                 @default(0) // For controlling display order in timelines
+  createdBy      User?               @relation("CreatedBy", fields: [createdById], references: [id])
+  milestones     Milestone[]
+  flaggedBy      User[]              @relation("FlaggedMilestones")
 
-  @@map("milestone_templates")
   @@index([programType, programSubType])
   @@index([normalizedName])
+  @@index([programType])
+  @@index([category])
+  @@map("milestone_templates")
+}
+
+model ApplicationType {
+  id             String        @id @default(uuid())
+  name           String
+  description    String?
+  normalizedName String
+  category       String
+  isDefault      Boolean       @default(false)
+  useCount       Int           @default(0)
+  flagCount      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdById    String?
+  createdBy      User?         @relation("CreatedAppTypes", fields: [createdById], references: [id])
+  applications   Application[]
+  flaggedBy      User[]        @relation("FlaggedAppTypes")
+
+  @@unique([normalizedName, category])
+  @@index([normalizedName])
+  @@index([category])
+  @@map("application_types")
 }
 
 enum UserRole {
   USER
   ADMIN
-} 
+}

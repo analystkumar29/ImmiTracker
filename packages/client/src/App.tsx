@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 import AdminDashboard from './pages/admin/Dashboard';
 import FlaggedItemsPage from './pages/admin/FlaggedItems';
+import MilestoneManagement from './pages/admin/MilestoneManagement';
 import { Toaster } from 'react-hot-toast';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Loading } from './components/Feedback';
@@ -99,6 +100,11 @@ const App = () => {
           <Route path="/admin/flagged-items" element={
             <AdminRoute>
               <RouteWithErrorBoundary element={<FlaggedItemsPage />} />
+            </AdminRoute>
+          } />
+          <Route path="/admin/milestones" element={
+            <AdminRoute>
+              <RouteWithErrorBoundary element={<MilestoneManagement />} />
             </AdminRoute>
           } />
           

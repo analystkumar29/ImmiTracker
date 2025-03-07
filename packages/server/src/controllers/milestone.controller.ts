@@ -36,8 +36,14 @@ export const getMilestoneTemplates = async (
   next: NextFunction
 ) => {
   try {
-    const { programType, subType } = req.params;
-    const { includeUnapproved } = req.query;
+    // Get programType from either path parameter or query parameter
+    const pathProgramType = req.params.programType;
+    const queryProgramType = req.query.programType as string;
+    const programType = pathProgramType || queryProgramType;
+    
+    // Get subType from query parameter
+    const subType = req.query.subType as string || req.query.programSubType as string;
+    const includeUnapproved = req.query.includeUnapproved === 'true';
     
     if (!programType) {
       return next(new AppError('Program type is required', 400));
@@ -46,7 +52,7 @@ export const getMilestoneTemplates = async (
     const templates = await milestoneService.getMilestoneTemplates(
       programType,
       subType,
-      includeUnapproved === 'true'
+      includeUnapproved
     );
     
     res.json(templates);
@@ -237,6 +243,155 @@ export const promotePopularMilestones = async (
     res.status(200).json({
       message: 'Popular milestones promoted successfully',
       results
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Flag a milestone template as irrelevant or incorrect
+ */
+export const flagMilestoneTemplate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { templateId } = req.params;
+    const userId = req.user?.id;
+    
+    if (!templateId) {
+      return next(new AppError('Template ID is required', 400));
+    }
+    
+    if (!userId) {
+      return next(new AppError('User must be authenticated', 401));
+    }
+    
+    const template = await milestoneService.flagMilestoneTemplate(templateId, userId);
+    res.json(template);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Remove a flag from a milestone template
+ */
+export const unflagMilestoneTemplate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { templateId } = req.params;
+    const userId = req.user?.id;
+    
+    if (!templateId) {
+      return next(new AppError('Template ID is required', 400));
+    }
+    
+    if (!userId) {
+      return next(new AppError('User must be authenticated', 401));
+    }
+    
+    const template = await milestoneService.unflagMilestoneTemplate(templateId, userId);
+    res.json(template);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Process highly flagged milestone templates (admin only)
+ */
+export const processHighlyFlaggedMilestones = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const results = await milestoneService.processHighlyFlaggedMilestones();
+    
+    res.status(200).json({
+      message: 'Flagged milestones processed successfully',
+      results
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get all unique milestone templates regardless of program type
+ */
+export const getAllUniqueMilestoneTemplates = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const includeUnapproved = req.query.includeUnapproved === 'true';
+    
+    const milestoneService = new MilestoneService();
+    const templates = await milestoneService.getAllUniqueMilestoneTemplates(includeUnapproved);
+    
+    res.json(templates);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get milestone templates grouped by category
+ */
+export const getMilestoneTemplatesByCategory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { programType, programSubType } = req.query;
+    
+    const groupedTemplates = await milestoneService.getMilestoneTemplatesByCategory(
+      programType as string,
+      programSubType as string
+    );
+    
+    res.json(groupedTemplates);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Run milestone normalization process
+ * Admin only endpoint
+ */
+export const normalizeMilestones = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Update milestone templates with normalized names and categories
+    const updateResult = await milestoneService.updateMilestoneNormalization();
+    
+    // Find duplicate milestones
+    const duplicateGroups = await milestoneService.handleDuplicateMilestones();
+    
+    // Merge duplicates if requested
+    let mergeResults = null;
+    if (req.query.merge === 'true') {
+      mergeResults = await milestoneService.mergeDuplicates();
+    }
+    
+    res.json({
+      success: true,
+      updatedCount: updateResult.updatedCount,
+      duplicateGroups: duplicateGroups.length,
+      mergedGroups: mergeResults ? mergeResults.length : 0
     });
   } catch (error) {
     next(error);

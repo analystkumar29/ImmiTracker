@@ -1,6 +1,6 @@
 # ImmiTracker
 
-ImmiTracker is a crowdsourced web application designed to help immigration applicants reduce anxiety during long application processes. It allows users to anonymously contribute and compare key application milestone data—such as submission dates and update timings—so they can see how their case compares to others in the same category.
+ImmiTracker is a comprehensive application for tracking immigration applications and milestones.
 
 ## Features
 
@@ -11,6 +11,51 @@ ImmiTracker is a crowdsourced web application designed to help immigration appli
 - **Peer Comparison**: Compare your application timeline with aggregated data from similar cases
 - **Community Insights**: Share experiences and tips with other applicants
 - **JWT Authentication**: Secure user authentication and authorization
+
+## Recent Updates
+
+### Enhanced Milestone Management
+
+We've made significant improvements to the milestone management system:
+
+1. **Standardized Update Status Dialog**
+   - Consistent interface across all application views
+   - Improved user experience for updating application statuses
+   - Added ability to add custom milestones directly from the status update dialog
+
+2. **Milestone Flagging System**
+   - Users can now flag milestone templates that are not relevant to their immigration journey
+   - Educational component explains the flagging process
+   - Visual indicators show which milestones have been flagged
+   - Flagged milestones are reviewed by administrators to improve the system
+
+3. **Custom Milestone Creation**
+   - Standardized dialog for adding custom milestones
+   - Improved error handling and user feedback
+   - Custom milestones are associated with specific application types
+
+## How to Use the Milestone Flagging Feature
+
+1. Navigate to any page where milestone templates are displayed
+2. Look for the flag icon next to each milestone template
+3. Click the flag icon to mark a milestone as irrelevant (it will turn red when flagged)
+4. Click again to unflag if you change your mind
+5. Our team reviews all flagged milestones to improve the system
+
+## How to Update Application Status
+
+1. From the Dashboard or Applications page, click the "Update Status" button for an application
+2. Select a milestone from the dropdown list
+3. Choose the date when the milestone was completed
+4. Add optional notes about the milestone
+5. Click "Save" to update the application status
+
+## How to Add Custom Milestones
+
+1. From the Update Status dialog, click "Add Custom Milestone"
+2. Enter a name for your custom milestone
+3. Click "Add Milestone" to create the milestone
+4. The custom milestone will be added to your application and marked as completed
 
 ## Tech Stack
 
@@ -75,16 +120,13 @@ ImmiTracker/
 
 ### Running the Application
 
-Run both frontend and backend in development mode:
-```
+To start the application in development mode:
+
+```bash
 npm run dev
 ```
 
-Or run them separately:
-```
-npm run dev:client
-npm run dev:server
-```
+This will start both the client and server concurrently. The client will be available at http://localhost:5174/ and the server at http://localhost:3004/.
 
 ## Key Features in Detail
 
