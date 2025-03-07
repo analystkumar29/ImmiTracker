@@ -1,4 +1,4 @@
-import { prisma } from '../config/database';
+import { prisma } from '../index';
 
 /**
  * Normalizes a milestone name by removing program type references and standardizing terminology

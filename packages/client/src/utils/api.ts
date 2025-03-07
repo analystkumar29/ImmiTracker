@@ -290,7 +290,7 @@ export const updateApplicationStatus = async (applicationId: string, statusUpdat
   notes?: string;
 }) => {
   try {
-    const response = await axios.post(`/api/applications/${applicationId}/status`, statusUpdate);
+    const response = await api.post(`/applications/${applicationId}/status`, statusUpdate);
     return response.data;
   } catch (error) {
     handleError(error, 'Failed to update application status');
