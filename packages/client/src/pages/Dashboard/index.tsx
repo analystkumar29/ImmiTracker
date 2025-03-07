@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Box,
@@ -440,7 +440,8 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Update the handleViewDetails function to properly set the selected application
+  // This function is kept for reference but no longer directly used with buttons
+  // since we're now using the Link component for navigation
   const handleViewDetails = (applicationId: string) => {
     console.log('View details clicked for application:', applicationId);
     
@@ -450,24 +451,26 @@ const Dashboard: React.FC = () => {
       return;
     }
     
-    // Find the application in our local state
-    const application = applications.find(app => app.id === applicationId);
-    
-    // If found, set it as the selected application in Redux before navigating
-    if (application) {
-      console.log('Setting selected application:', application);
-      try {
+    try {
+      // Find the application in our local state
+      const application = applications.find(app => app.id === applicationId);
+      
+      // If found, set it as the selected application in Redux before navigating
+      if (application) {
+        console.log('Setting selected application:', application);
+        
+        // Dispatch action to Redux
         dispatch(setSelectedApplication(application));
         
         // Navigate to the application details page
         navigate(`/applications/${applicationId}`);
-      } catch (error) {
-        console.error('Error setting selected application:', error);
-        toast.error('Error navigating to application details');
+      } else {
+        console.error('Application not found with ID:', applicationId);
+        toast.error('Application details not found');
       }
-    } else {
-      console.error('Application not found with ID:', applicationId);
-      toast.error('Application details not found');
+    } catch (error) {
+      console.error('Error in handleViewDetails:', error);
+      toast.error('Failed to navigate to application details');
     }
   };
 
@@ -494,7 +497,7 @@ const Dashboard: React.FC = () => {
               {primaryApplication.country}, {primaryApplication.city}
             </Typography>
           </Box>
-          <Box sx={{ mt: { xs: 2, sm: 0 }, width: { xs: '100%', sm: 'auto' }, display: 'flex', gap: 2 }}>
+          <Box sx={{ mt: { xs: 2, sm: 0 }, width: { xs: '100%', sm: 'auto' }, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mt: 2 }}>
             <Button 
               variant="outlined" 
               color="primary"
@@ -504,14 +507,30 @@ const Dashboard: React.FC = () => {
             >
               Update Status
             </Button>
-            <Button 
-              variant="contained" 
-              color="primary"
-              onClick={() => handleViewDetails(primaryApplication.id)}
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            
+            {/* Use Link component for reliable navigation */}
+            <Link 
+              to={`/applications/${primaryApplication.id}`}
+              style={{ 
+                textDecoration: 'none',
+                display: 'inline-block'
+              }}
+              onClick={(e) => {
+                // Still dispatch the selected application to Redux
+                const application = applications.find(app => app.id === primaryApplication.id);
+                if (application) {
+                  dispatch(setSelectedApplication(application));
+                }
+              }}
             >
-              View Details
-            </Button>
+              <Button 
+                variant="contained" 
+                color="primary"
+                sx={{ width: { xs: '100%', sm: 'auto' }, position: 'relative', zIndex: 1 }}
+              >
+                View Details
+              </Button>
+            </Link>
           </Box>
         </Box>
         
@@ -676,13 +695,27 @@ const Dashboard: React.FC = () => {
                       >
                         Update Status
                       </Button>
-                      <Button
-                        variant="contained"
-                        sx={{ flex: 1 }}
-                        onClick={() => handleViewDetails(application.id)}
+                      
+                      {/* Use Link component for reliable navigation */}
+                      <Link 
+                        to={`/applications/${application.id}`}
+                        style={{ 
+                          textDecoration: 'none',
+                          display: 'inline-block',
+                          flex: 1
+                        }}
+                        onClick={(e) => {
+                          // Still dispatch the selected application to Redux
+                          dispatch(setSelectedApplication(application));
+                        }}
                       >
-                        View Details
-                      </Button>
+                        <Button
+                          variant="contained"
+                          sx={{ width: '100%', position: 'relative', zIndex: 1 }}
+                        >
+                          View Details
+                        </Button>
+                      </Link>
                     </Box>
                   </CardContent>
                 </Card>

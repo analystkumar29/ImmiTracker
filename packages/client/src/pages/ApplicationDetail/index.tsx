@@ -101,8 +101,11 @@ const ApplicationDetail = () => {
   const dispatch = useDispatch();
   const theme = useTheme();
   
+  console.log('ApplicationDetail component rendering with ID:', id);
+  
   // Get the selected application from Redux
   const selectedApplication = useSelector((state: RootState) => state.applications.selectedApplication);
+  console.log('Selected application from Redux:', selectedApplication);
   
   // Get programs from Redux store
   const programs = useSelector((state: RootState) => state.programs.programs);
@@ -125,6 +128,22 @@ const ApplicationDetail = () => {
   const [availableMilestones, setAvailableMilestones] = useState<string[]>([]);
   const [milestonesLoading, setMilestonesLoading] = useState<boolean>(false);
   const [isCustomMilestoneDialogOpen, setIsCustomMilestoneDialogOpen] = useState(false);
+
+  // Check if ID is valid
+  useEffect(() => {
+    console.log('ApplicationDetail useEffect for ID check running with ID:', id);
+    if (!id) {
+      console.error('No application ID provided in URL parameters');
+      toast.error('Application ID is missing');
+      navigate('/applications');
+      return;
+    }
+    console.log('ApplicationDetail component mounted with ID:', id);
+    
+    // Log the current URL for debugging
+    console.log('Current URL:', window.location.href);
+    console.log('Current pathname:', window.location.pathname);
+  }, [id, navigate]);
 
   // Add a function to fetch application data
   const fetchApplication = async () => {
